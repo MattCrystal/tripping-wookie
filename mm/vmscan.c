@@ -2586,11 +2586,7 @@ loop_again:
 			if ((buffer_heads_over_limit && is_highmem_idx(i)) ||
 			    !zone_balanced(zone, testorder,
 					   balance_gap, end_zone)) {
-<<<<<<< HEAD
 				shrink_zone(zone, &sc);
-=======
-				shrink_zone(priority, zone, &sc);
->>>>>>> 2763c6d... 3.4.83
 
 				reclaim_state->reclaimed_slab = 0;
 				nr_slab = shrink_slab(&shrink, sc.nr_scanned, lru_pages);
