@@ -195,7 +195,7 @@ SUBARCH := arm
 export KBUILD_BUILDHOST := $(SUBARCH)
 ARCH		?= $(SUBARCH)
 CROSS_COMPILE	?= $(CONFIG_CROSS_COMPILE:"%"=%)
-CROSS_COMPILE	:= /home/nineinchnails/linaro-arm-eabi-4.9-master/bin/arm-eabi-
+CROSS_COMPILE	:= /home/nineinchnails/android-toolchain-eabi/bin/arm-linux-androideabi-
 
 # Architecture as present in compile.h
 UTS_MACHINE 	:= $(ARCH)

@@ -136,7 +136,8 @@ static struct page_info *alloc_largest_available(struct ion_iommu_heap *heap,
 	return NULL;
 }
 
-static int ion_iommu_buffer_zero(struct ion_iommu_priv_data *data)
+static int ion_iommu_buffer_zero(struct ion_iommu_priv_data *data,
+				bool is_cached)
 {
 	int i, j, k;
 	unsigned int npages_to_vmap;
@@ -176,18 +177,19 @@ static int ion_iommu_buffer_zero(struct ion_iommu_priv_data *data)
 			return -ENOMEM;
 
 		memset(ptr, 0, npages_to_vmap * PAGE_SIZE);
+		if (is_cached) {
+			/*
+			 * invalidate the cache to pick up the zeroing
+			 */
+			for (k = 0; k < npages_to_vmap; k++) {
+				void *p = kmap_atomic(data->pages[i + k]);
+				phys_addr_t phys = page_to_phys(
+							data->pages[i + k]);
 
-		/*
-		 * invalidate the cache to pick up the zeroing
-		 */
-		for (k = 0; k < npages_to_vmap; k++) {
-			void *p = kmap_atomic(data->pages[i + k]);
-			phys_addr_t phys = page_to_phys(
-						data->pages[i + k]);
-
-			dmac_inv_range(p, p + PAGE_SIZE);
-			outer_inv_range(phys, phys + PAGE_SIZE);
-			kunmap_atomic(p);
+				dmac_inv_range(p, p + PAGE_SIZE);
+				outer_inv_range(phys, phys + PAGE_SIZE);
+				kunmap_atomic(p);
+			}
 		}
 		vunmap(ptr);
 	}
@@ -287,7 +289,7 @@ static int ion_iommu_heap_allocate(struct ion_heap *heap,
 
 
 		if (flags & ION_FLAG_POOL_FORCE_ALLOC) {
-			ret = ion_iommu_buffer_zero(data);
+			ret = ion_iommu_buffer_zero(data, ION_IS_CACHED(flags));
 			if (ret) {
 				pr_err("Couldn't vmap the pages for zeroing\n");
 				goto err3;
@@ -346,7 +348,7 @@ static void ion_iommu_heap_free(struct ion_buffer *buffer)
 		return;
 
 	if (!(buffer->flags & ION_FLAG_POOL_FORCE_ALLOC))
-		ion_iommu_buffer_zero(data);
+		ion_iommu_buffer_zero(data, ION_IS_CACHED(buffer->flags));
 
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		int order = get_order(sg_dma_len(sg));
@@ -535,7 +537,7 @@ struct ion_heap *ion_iommu_heap_create(struct ion_platform_heap *heap_data)
 			gfp_flags = high_gfp_flags | __GFP_ZERO;
 		else
 			gfp_flags = low_gfp_flags | __GFP_ZERO;
-		pool = ion_page_pool_create(gfp_flags, orders[i]);
+		pool = ion_page_pool_create(gfp_flags, orders[i], true);
 		if (!pool)
 			goto err_create_cached_pool;
 		iommu_heap->cached_pools[i] = pool;
@@ -549,7 +551,7 @@ struct ion_heap *ion_iommu_heap_create(struct ion_platform_heap *heap_data)
 			gfp_flags = high_gfp_flags | __GFP_ZERO;
 		else
 			gfp_flags = low_gfp_flags | __GFP_ZERO;
-		pool = ion_page_pool_create(gfp_flags, orders[i]);
+		pool = ion_page_pool_create(gfp_flags, orders[i], false);
 		if (!pool)
 			goto err_create_uncached_pool;
 		iommu_heap->uncached_pools[i] = pool;

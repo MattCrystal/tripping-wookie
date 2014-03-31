@@ -46,6 +46,32 @@
 #include <linux/input/doubletap2wake.h>
 #endif
 #endif
+#ifdef CONFIG_PWRKEY_SUSPEND
+#include <linux/qpnp/power-on.h>
+#endif
+
+
+#ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
+static bool prevent_sleep_irq_wake_enabled = false;
+static void prevent_sleep_enable_irq_wake(unsigned int irq){
+	if(!prevent_sleep_irq_wake_enabled){
+		prevent_sleep_irq_wake_enabled = true;
+		enable_irq_wake(irq);
+		pr_info("irq_wake enabled\n");
+	}
+	else
+		pr_info("irq_wake already enabled\n");
+}
+static void prevent_sleep_disable_irq_wake(unsigned int irq){
+	if(prevent_sleep_irq_wake_enabled){
+		prevent_sleep_irq_wake_enabled = false;
+		disable_irq_wake(irq);
+		pr_info("irq_wake disabled\n");
+	}
+	else
+		pr_info("irq_wake already disabled\n");
+}
+#endif
 
 static struct workqueue_struct *synaptics_wq;
 
@@ -234,7 +260,7 @@ static int synaptics_t1320_power_on(struct i2c_client *client, int on)
 /* Debug mask value
  * usage: echo [debug_mask] > /sys/module/touch_synaptics/parameters/debug_mask
  */
-static u32 touch_debug_mask = 0;
+static u32 touch_debug_mask = DEBUG_BASE_INFO | DEBUG_FW_UPGRADE;
 module_param_named(debug_mask, touch_debug_mask, int, S_IRUGO|S_IWUSR|S_IWGRP);
 
 static int touch_power_cntl(struct synaptics_ts_data *ts, int onoff);
@@ -247,7 +273,6 @@ static int synaptics_ts_power(struct i2c_client *client, int power_ctrl);
 static int synaptics_init_panel(struct i2c_client *client, struct synaptics_ts_fw_info *fw_info);
 static int get_ic_info(struct synaptics_ts_data *ts, struct synaptics_ts_fw_info *fw_info);
 static void *get_touch_handle(struct i2c_client *client);
-
 
 /* touch_asb_input_report
  *
@@ -1678,7 +1703,7 @@ static int lcd_notifier_callback(struct notifier_block *this,
 	bool prevent_sleep = false;
 #endif
 #if defined(CONFIG_TOUCHSCREEN_SWEEP2WAKE)
-	prevent_sleep = (s2w_switch > 0) && (s2w_s2sonly == 0);
+	prevent_sleep = (s2w_switch > 0);
 #endif
 #if defined(CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE)
 	prevent_sleep = prevent_sleep || (dt2w_switch > 0);
@@ -1702,7 +1727,7 @@ static int lcd_notifier_callback(struct notifier_block *this,
 		mutex_unlock(&ts->input_dev->mutex);
 #ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
 		if (prevent_sleep)
-			disable_irq_wake(ts->client->irq);
+			prevent_sleep_disable_irq_wake(ts->client->irq);
 #endif
 		break;
 	case LCD_EVENT_OFF_START:
@@ -1725,7 +1750,7 @@ static int lcd_notifier_callback(struct notifier_block *this,
 		}
 #ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
 		if (prevent_sleep)
-			enable_irq_wake(ts->client->irq);
+			prevent_sleep_enable_irq_wake(ts->client->irq);
 #endif
 		break;
 	default:
@@ -1861,7 +1886,7 @@ static int synaptics_ts_probe(
 
 	ret = request_threaded_irq(client->irq, NULL, touch_irq_handler,
 #ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
-			IRQF_TRIGGER_FALLING | IRQF_ONESHOT | IRQF_NO_SUSPEND, client->name, ts);
+			IRQF_TRIGGER_FALLING | IRQF_ONESHOT, client->name, ts);
 #else
 			IRQF_TRIGGER_FALLING | IRQF_ONESHOT, client->name, ts);
 #endif

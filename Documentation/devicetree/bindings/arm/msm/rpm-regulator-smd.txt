@@ -84,7 +84,6 @@ Optional properties:
 				current updates are only sent if the given
 				regulator has also been enabled by a Linux
 				consumer.
-
 The following properties specify initial values for parameters to be sent to the
 RPM in regulator requests.
 - qcom,init-enable:            0 = regulator disabled

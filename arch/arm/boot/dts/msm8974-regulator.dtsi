@@ -135,8 +135,8 @@
 	rpm-regulator-smpb4 {
 		status = "okay";
 		pm8841_s4: regulator-s4 {
-			regulator-min-microvolt = <815000>;
-			regulator-max-microvolt = <900000>;
+			regulator-min-microvolt = <675000>;
+			regulator-max-microvolt = <815000>;
 			status = "okay";
 		};
 		pm8841_s4_corner: regulator-s4-corner {
@@ -467,7 +467,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
-		qcom,pfm-threshold = <76>;
+		qcom,pfm-threshold = <73>;
 		qcom,use-phase-scaling-factor;
 
 		krait0_vreg: regulator@f9088000 {
@@ -562,10 +562,6 @@
 	regulator-min-microvolt = <5000000>;
 	regulator-max-microvolt = <5000000>;
 	regulator-name = "8941_smbb_boost";
-};
-
-&pm8941_chg_batif  {
-	regulator-name = "batfet";
 };
 
 &pm8941_chg_otg {

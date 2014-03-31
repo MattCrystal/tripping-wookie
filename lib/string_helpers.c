@@ -96,6 +96,7 @@ static bool unescape_space(char **src, char **dst)
 	*src += 1;
 	return true;
 }
+#define isodigit(c)		((c) >= '0' && (c) <= '7')
 
 static bool unescape_octal(char **src, char **dst)
 {
