@@ -15,10 +15,6 @@
 
 #include <linux/errno.h>
 
-#ifdef CONFIG_PWRKEY_SUSPEND
-extern bool pwrkey_pressed;
-#endif
-
 /**
  * enum pon_trigger_source: List of PON trigger sources
  * %PON_SMPL:		PON triggered by SMPL - Sudden Momentary Power Loss
@@ -56,7 +52,6 @@ enum pon_power_off_type {
 int qpnp_pon_system_pwr_off(enum pon_power_off_type type);
 int qpnp_pon_is_warm_reset(void);
 int qpnp_pon_trigger_config(enum pon_trigger_source pon_src, bool enable);
-int qpnp_pon_wd_config(bool enable);
 #else
 static int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 {
@@ -65,10 +60,6 @@ static int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 static inline int qpnp_pon_is_warm_reset(void) { return -ENODEV; }
 static inline int qpnp_pon_trigger_config(enum pon_trigger_source pon_src,
 							bool enable)
-{
-	return -ENODEV;
-}
-int qpnp_pon_wd_config(bool enable)
 {
 	return -ENODEV;
 }

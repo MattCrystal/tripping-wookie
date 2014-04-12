@@ -20,6 +20,7 @@
 #include <linux/init.h>
 #include <linux/uaccess.h>
 #include <linux/user.h>
+#include <linux/export.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 
@@ -85,7 +86,6 @@ static void vfp_force_reload(unsigned int cpu, struct thread_info *thread)
 	}
 #ifdef CONFIG_SMP
 	thread->vfpstate.hard.cpu = NR_CPUS;
-	vfp_current_hw_state[cpu] = NULL;
 #endif
 }
 
@@ -656,6 +656,47 @@ void vfp_kmode_exception(void)
 		pr_crit("BUG: FP instruction issued in kernel mode with FP unit disabled\n");
 }
 
+/*
+ * VFP hardware can lose all context when a CPU goes offline.
+ * As we will be running in SMP mode with CPU hotplug, we will save the
+ * hardware state at every thread switch.  We clear our held state when
+ * a CPU has been killed, indicating that the VFP hardware doesn't contain
+ * a threads VFP state.  When a CPU starts up, we re-enable access to the
+ * VFP hardware.
+ *
+ * Both CPU_DYING and CPU_STARTING are called on the CPU which
+ * is being offlined/onlined.
+ */
+static int vfp_hotplug(struct notifier_block *b, unsigned long action,
+	void *hcpu)
+{
+	if (action == CPU_DYING || action == CPU_DYING_FROZEN) {
+		vfp_force_reload((long)hcpu, current_thread_info());
+	} else if (action == CPU_STARTING || action == CPU_STARTING_FROZEN)
+		vfp_enable(NULL);
+	return NOTIFY_OK;
+}
+
+#ifdef CONFIG_PROC_FS
+static int vfp_bounce_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%llu\n", atomic64_read(&vfp_bounce_count));
+	return 0;
+}
+
+static int vfp_bounce_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, vfp_bounce_show, NULL);
+}
+
+static const struct file_operations vfp_bounce_fops = {
+	.open		= vfp_bounce_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+#endif
+
 #ifdef CONFIG_KERNEL_MODE_NEON
 
 /*
@@ -701,47 +742,6 @@ void kernel_neon_end(void)
 EXPORT_SYMBOL(kernel_neon_end);
 
 #endif /* CONFIG_KERNEL_MODE_NEON */
-
-/*
- * VFP hardware can lose all context when a CPU goes offline.
- * As we will be running in SMP mode with CPU hotplug, we will save the
- * hardware state at every thread switch.  We clear our held state when
- * a CPU has been killed, indicating that the VFP hardware doesn't contain
- * a threads VFP state.  When a CPU starts up, we re-enable access to the
- * VFP hardware.
- *
- * Both CPU_DYING and CPU_STARTING are called on the CPU which
- * is being offlined/onlined.
- */
-static int vfp_hotplug(struct notifier_block *b, unsigned long action,
-	void *hcpu)
-{
-	if (action == CPU_DYING || action == CPU_DYING_FROZEN) {
-		vfp_force_reload((long)hcpu, current_thread_info());
-	} else if (action == CPU_STARTING || action == CPU_STARTING_FROZEN)
-		vfp_enable(NULL);
-	return NOTIFY_OK;
-}
-
-#ifdef CONFIG_PROC_FS
-static int vfp_bounce_show(struct seq_file *m, void *v)
-{
-	seq_printf(m, "%llu\n", atomic64_read(&vfp_bounce_count));
-	return 0;
-}
-
-static int vfp_bounce_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, vfp_bounce_show, NULL);
-}
-
-static const struct file_operations vfp_bounce_fops = {
-	.open		= vfp_bounce_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release,
-};
-#endif
 
 /*
  * VFP support code initialisation.

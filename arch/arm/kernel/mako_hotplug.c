@@ -106,13 +106,13 @@ static inline int get_cpu_load(unsigned int cpu)
 {
 	struct cpu_load_data *pcpu = &per_cpu(cpuload, cpu);
 	struct cpufreq_policy policy;
-	u64 cur_wall_time, cur_idle_time;
-	unsigned int idle_time, wall_time;
+	u64 cur_wall_time =0, cur_idle_time =0;
+	unsigned int idle_time, wall_time =0;
 	unsigned int cur_load;
 
 	cpufreq_get_policy(&policy, cpu);
 
-	cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, true);
+	//cur_idle_time = get_cpu_idle_time(cpu, &cur_wall_time, true);
 
 	wall_time = (unsigned int) (cur_wall_time - pcpu->prev_cpu_wall);
 	pcpu->prev_cpu_wall = cur_wall_time;
